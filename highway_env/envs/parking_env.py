@@ -1,4 +1,5 @@
 from abc import abstractmethod
+import math
 from typing import Optional
 
 from gymnasium import Env
@@ -201,7 +202,15 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         :param p: the Lp^p norm used in the reward. Use p<1 to have high kurtosis for rewards in [0, 1]
         :return: the corresponding reward
         """
-        return -np.power(np.dot(np.abs(achieved_goal - desired_goal), np.array(self.config["reward_weights"])), p)
+        computed_reward = -np.power(np.dot(np.abs(achieved_goal - desired_goal), np.array(self.config["reward_weights"])), p)
+        # Sometimes the computed reward may become NaN
+        if math.isnan(computed_reward):
+            print("NAN")
+            computed_reward = 0
+        elif str(type(computed_reward)) != "<class 'numpy.float64'>":
+            print("NOT NUMERIC")
+            computed_reward = 0
+        return computed_reward
 
     def _reward(self, action: np.ndarray) -> float:
         obs = self.observation_type_parking.observe()
