@@ -217,14 +217,6 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         obs = obs if isinstance(obs, tuple) else (obs,)
         reward = sum(self.compute_reward(agent_obs['achieved_goal'], agent_obs['desired_goal'], {}) for agent_obs in obs)
         reward += self.config['collision_reward'] * sum(v.crashed for v in self.controlled_vehicles)
-        if math.isnan(reward):
-            print("NAN")
-            exit()
-            computed_reward = 0
-        elif str(type(reward)) != "<class 'numpy.float64'>":
-            print("NOT NUMERIC")
-            exit()
-            computed_reward = 0
         return reward
 
     def _is_success(self, achieved_goal: np.ndarray, desired_goal: np.ndarray) -> bool:
