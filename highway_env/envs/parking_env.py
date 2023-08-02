@@ -101,7 +101,8 @@ class ParkingEnv(AbstractEnv, GoalEnv):
             "scaling": 7,
             "controlled_vehicles": 1,
             "vehicles_count": 0,
-            "add_walls": True
+            "add_walls": True,
+            "start_location": [0,0]
         })
         return config
 
@@ -154,7 +155,8 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         # Controlled vehicles
         self.controlled_vehicles = []
         for i in range(self.config["controlled_vehicles"]):
-            vehicle = self.action_type.vehicle_class(self.road, [i*20, 0], 2*np.pi*self.np_random.uniform(), 0)
+            starting_location = [i*20 + self.config['start_location'][0], self.config['start_location'][1]]
+            vehicle = self.action_type.vehicle_class(self.road, starting_location, 2*np.pi*self.np_random.uniform(), 0)
             vehicle.color = VehicleGraphics.EGO_COLOR
             self.road.vehicles.append(vehicle)
             self.controlled_vehicles.append(vehicle)
