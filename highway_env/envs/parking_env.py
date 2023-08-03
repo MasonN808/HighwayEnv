@@ -205,13 +205,6 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         :return: the corresponding reward
         """
         computed_reward = -np.power(np.dot(np.abs(achieved_goal - desired_goal), np.array(self.config["reward_weights"])), p)
-        # Sometimes the computed reward may become NaN
-        if math.isnan(computed_reward):
-            print("NAN")
-            computed_reward = 0
-        elif str(type(computed_reward)) != "<class 'numpy.float64'>":
-            print("NOT NUMERIC")
-            computed_reward = 0
         return computed_reward
 
     def _reward(self, action: np.ndarray) -> float:
