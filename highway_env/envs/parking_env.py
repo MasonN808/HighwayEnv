@@ -207,6 +207,20 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         computed_reward = -np.power(np.dot(np.abs(achieved_goal - desired_goal), np.array(self.config["reward_weights"])), p)
         return computed_reward
 
+    # def compute_cost(self, action: np.ndarray) -> float:
+    #     """Determine costs. The vehicle should stay out of a certain range of the parking lines."""
+    #     obs = self.observation_type_parking.observe()
+    #     obs = obs if isinstance(obs, tuple) else (obs,)
+    #     cost = {}
+
+    #     # Calculate constraint violations
+    #     for obstacle in self._obstacles:
+    #         cost.update(obstacle.cal_cost())
+
+    #     # Sum all costs into single total cost
+    #     cost['cost_sum'] = sum(v for k, v in cost.items() if k.startswith('cost_'))
+    #     return cost
+
     def _reward(self, action: np.ndarray) -> float:
         obs = self.observation_type_parking.observe()
         obs = obs if isinstance(obs, tuple) else (obs,)
