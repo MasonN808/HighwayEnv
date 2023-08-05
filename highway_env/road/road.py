@@ -62,6 +62,22 @@ class RoadNetwork(object):
                     indexes.append((_from, _to, _id))
         return indexes[int(np.argmin(distances))]
 
+    def get_closest_lane_distance(self, position: np.ndarray, heading: Optional[float] = None) -> float:
+        """
+        Get the distance of the lane closest to a world position.
+
+        :param position: a world position [m].
+        :param heading: a heading angle [rad].
+        :return: the index of the closest lane.
+        """
+        distances = []
+        for _from, to_dict in self.graph.items():
+            for _to, lanes in to_dict.items():
+                for _id, l in enumerate(lanes):
+                    distances.append(l.distance_with_heading(position, heading))
+        # print(distances)
+        return np.min(distances)
+
     def next_lane(self, current_index: LaneIndex, route: Route = None, position: np.ndarray = None,
                   np_random: np.random.RandomState = np.random) -> LaneIndex:
         """
