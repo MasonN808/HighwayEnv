@@ -139,14 +139,35 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         x_offset = 0
         y_offset = 10
         length = 8
+        num_points = self.config["quantized_line_points"]
         for k in range(spots):
             x = (k + 1 - spots // 2) * (width + x_offset) - width / 2
             net.add_lane("a", "b", StraightLane([x, y_offset], [x, y_offset+length], width=width, line_types=lt))
             net.add_lane("b", "c", StraightLane([x, -y_offset], [x, -y_offset-length], width=width, line_types=lt))
+            quantized_line_1 = self._quantize_straight_line_positions([x, y_offset], [x, y_offset+length], num_points=num_points, horizontal_offset=-width/2)
+            quantized_line_2 = self._quantize_straight_line_positions([x, -y_offset], [x, -y_offset-length], num_points=num_points, horizontal_offset=-width/2)
+            if k == 0:
+                self.discretized_line_positions = np.concatenate((quantized_line_1, quantized_line_2))
+            else:
+                self.discretized_line_positions = np.concatenate((self.discretized_line_positions, quantized_line_1, quantized_line_2))
 
         self.road = Road(network=net,
                          np_random=self.np_random,
                          record_history=self.config["show_trajectories"])
+
+    def _quantize_straight_line_positions(self, init_line_position: list, end_line_position: list, num_points: int, horizontal_offset: float=0) -> np.ndarray:
+        assert num_points > 0, "num_points must be strictly greater than zero'"
+        quantized_line_positions = []
+        # Initial positioning of the quantized point on the line
+        x_pos = init_line_position[0] + horizontal_offset # This is usually relative to the width of the lane
+        y_pos = init_line_position[1]
+        for _ in range(num_points):
+            quantized_line_positions.append([x_pos, y_pos])
+            longitudinal_diff = (init_line_position[0]-end_line_position[0])/num_points
+            lateral_diff = (init_line_position[1]-end_line_position[1])/num_points
+            x_pos -= longitudinal_diff
+            y_pos -= lateral_diff
+        return np.asarray(quantized_line_positions)
 
     def _create_vehicles(self) -> None:
         """Create some new random vehicles of a given type, and add them on the road."""
@@ -207,26 +228,32 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         computed_reward = -np.power(np.dot(np.abs(achieved_goal - desired_goal), np.array(self.config["reward_weights"])), p)
         return computed_reward
 
-    # def compute_cost(self, action: np.ndarray) -> float:
-    #     """Determine costs. The vehicle should stay out of a certain range of the parking lines."""
-    #     obs = self.observation_type_parking.observe()
-    #     obs = obs if isinstance(obs, tuple) else (obs,)
-    #     cost = {}
-
-    #     # Calculate constraint violations
-    #     for obstacle in self._obstacles:
-    #         cost.update(obstacle.cal_cost())
-
-    #     # Sum all costs into single total cost
-    #     cost['cost_sum'] = sum(v for k, v in cost.items() if k.startswith('cost_'))
-    #     return cost
-
     def _reward(self, action: np.ndarray) -> float:
         obs = self.observation_type_parking.observe()
         obs = obs if isinstance(obs, tuple) else (obs,)
         reward = sum(self.compute_reward(agent_obs['achieved_goal'], agent_obs['desired_goal'], {}) for agent_obs in obs)
         reward += self.config['collision_reward'] * sum(v.crashed for v in self.controlled_vehicles)
         return reward
+
+    def compute_cost(self, achieved_goal: np.ndarray) -> float:
+        """Determine costs. The vehicle should stay out of a certain range of the parking lines."""
+        # Calculate cost on constraint violations
+        # TODO: Only works for one controlled vehicle
+        cost = {}
+        get_quantized_line_dist = lambda x: np.linalg.norm(self.controlled_vehicles[0].position-np.array([x[0], x[1]]))
+        quantized_line_dist = [get_quantized_line_dist(position) for position in self.discretized_line_positions]
+        cost["cost_sum"] = self.config['cost_delta_distance'] - min(quantized_line_dist) if min(quantized_line_dist) < self.config['cost_delta_distance'] else 0
+        return cost
+
+    #TODO: Refactor this
+    def _cost(self) -> float:
+        cost = {}
+        obs = self.observation_type_parking.observe()
+        obs = obs if isinstance(obs, tuple) else (obs,)
+        cost["cost"] = sum(self.compute_cost(agent_obs['achieved_goal'])["cost_sum"] for agent_obs in obs)
+        # cost["cost"] = 
+        # Added additional cost functions here
+        return cost
 
     def _is_success(self, achieved_goal: np.ndarray, desired_goal: np.ndarray) -> bool:
         return self.compute_reward(achieved_goal, desired_goal, {}) > -self.config["success_goal_reward"]
