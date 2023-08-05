@@ -242,6 +242,11 @@ class AbstractEnv(gym.Env):
         if self.render_mode == 'human':
             self.render()
 
+        # Constraint violations
+        info.update(self._cost())
+
+        cost = info['cost']
+
         return obs, reward, terminated, truncated, info
 
     def _simulate(self, action: Optional[Action] = None) -> None:
