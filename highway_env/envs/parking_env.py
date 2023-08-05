@@ -102,7 +102,12 @@ class ParkingEnv(AbstractEnv, GoalEnv):
             "controlled_vehicles": 1,
             "vehicles_count": 0,
             "add_walls": True,
-            "start_location": [0,0]
+            "start_location": [0,0],
+
+            # Costs
+            "constrained_rl": False,
+            "cost_delta_distance": 3,
+            "quantized_line_points": 10,
         })
         return config
 
