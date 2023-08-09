@@ -245,7 +245,6 @@ class AbstractEnv(gym.Env):
         # Constraint violations
         if self.config["constrained_rl"]:
             info.update(self._cost())
-
             # cost = info['cost']
 
         return obs, reward, terminated, truncated, info

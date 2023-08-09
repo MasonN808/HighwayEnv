@@ -106,8 +106,8 @@ class ParkingEnv(AbstractEnv, GoalEnv):
 
             # Costs
             "constrained_rl": False,
-            "cost_delta_distance": 3,
-            "quantized_line_points": 10,
+            "cost_delta_distance": 7,
+            "quantized_line_points": 20,
         })
         return config
 
