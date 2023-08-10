@@ -106,8 +106,11 @@ class ParkingEnv(AbstractEnv, GoalEnv):
 
             # Costs
             "constrained_rl": False,
+            # Cost-distance
             "cost_delta_distance": 7,
             "quantized_line_points": 20,
+            # Cost-speed
+            'cost_speed_limit': 2,
         })
         return config
 
@@ -131,6 +134,7 @@ class ParkingEnv(AbstractEnv, GoalEnv):
     def _reset(self):
         self._create_road()
         self._create_vehicles()
+        self.deleted = False
 
     def _create_road(self, spots: int = 14) -> None:
         """
@@ -145,6 +149,7 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         y_offset = 10
         length = 8
         num_points = self.config["quantized_line_points"]
+
         for k in range(spots):
             x = (k + 1 - spots // 2) * (width + x_offset) - width / 2
             net.add_lane("a", "b", StraightLane([x, y_offset], [x, y_offset+length], width=width, line_types=lt))
@@ -173,6 +178,19 @@ class ParkingEnv(AbstractEnv, GoalEnv):
             x_pos -= longitudinal_diff
             y_pos -= lateral_diff
         return np.asarray(quantized_line_positions)
+
+    def _remove_quantized_points(self, desired_goal: np.ndarray, quantized_line_positions: np.ndarray, num_points: int) -> np.ndarray:
+        """Removes all quantized points within one lane of the vehicle to prevent unncessary cost hikes."""
+        # Get the distance from the desired_goal to the quantized line points
+        get_distance = lambda position: np.linalg.norm(np.array([desired_goal[0], desired_goal[1]]) - np.array([position[0], position[1]]))
+        distances = [get_distance(quantized_line_position) for quantized_line_position in quantized_line_positions]
+        zipped_lists = zip(quantized_line_positions, distances)
+        # Sort both lists wrt to the distances
+        sorted_pairs = sorted(zipped_lists, key=lambda x: x[1])
+        # Unzip them
+        sorted_quantized_line_positions, sorted_distances = zip(*sorted_pairs)
+        # Remove the first n number of points
+        return sorted_quantized_line_positions[num_points:]
 
     def _create_vehicles(self) -> None:
         """Create some new random vehicles of a given type, and add them on the road."""
@@ -240,14 +258,27 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         reward += self.config['collision_reward'] * sum(v.crashed for v in self.controlled_vehicles)
         return reward
 
-    def compute_cost(self, achieved_goal: np.ndarray) -> float:
-        """Determine costs. The vehicle should stay out of a certain range of the parking lines."""
+    def compute_cost_dist(self, achieved_goal: np.ndarray, desired_goal: np.ndarray) -> float:
+        """Determine line distance costs. The vehicle should stay out of a certain range of the parking lines."""
+        # Check if we already removed the positions
+        if self.deleted:
+            self.deleted = True
+            # Remove points around the goal
+            # 2*num_points since there are two lanes next to the goal
+            self.discretized_line_positions = self._remove_quantized_points(desired_goal, self.discretized_line_positions, self.config['quantized_line_points']*2)
+
         # Calculate cost on constraint violations
-        # TODO: Only works for one controlled vehicle
-        cost = {}
-        get_quantized_line_dist = lambda x: np.linalg.norm(self.controlled_vehicles[0].position-np.array([x[0], x[1]]))
+        # Multiply the goal positions by the scale since they are really small
+        get_quantized_line_dist = lambda x: np.linalg.norm(np.asarray([achieved_goal[0]*self.config['observation']['scales'][0], achieved_goal[1]*self.config['observation']['scales'][1]]) - np.asarray([x[0], x[1]]))
         quantized_line_dist = [get_quantized_line_dist(position) for position in self.discretized_line_positions]
-        cost["cost_sum"] = self.config['cost_delta_distance'] - min(quantized_line_dist) if min(quantized_line_dist) < self.config['cost_delta_distance'] else 0
+        cost = max(0, self.config['cost_delta_distance'] - min(quantized_line_dist))
+        return cost
+
+    def compute_cost_speed(self, achieved_goal: np.ndarray) -> float:
+        """Determine speed costs. The vehicle should stay within a certain speed."""
+        # Derived from the x and y velocities
+        speed = np.linalg.norm(np.array([achieved_goal[2], achieved_goal[3]]))
+        cost =  speed - self.config['cost_speed_limit'] if speed > self.config['cost_speed_limit'] else 0
         return cost
 
     #TODO: Refactor this
@@ -255,8 +286,11 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         cost = {}
         obs = self.observation_type_parking.observe()
         obs = obs if isinstance(obs, tuple) else (obs,)
-        cost["cost"] = sum(self.compute_cost(agent_obs['achieved_goal'])["cost_sum"] for agent_obs in obs)
-        # cost["cost"] = 
+        cost["cost"] = 0
+        if self.config['cost_delta_distance']:
+            cost["cost"] += sum(self.compute_cost_dist(agent_obs['achieved_goal'], agent_obs['desired_goal']) for agent_obs in obs)
+        # if self.config['cost_speed_limit']:
+        #     cost["cost"] += sum(self.compute_cost_speed(agent_obs['achieved_goal']) for agent_obs in obs)
         # Added additional cost functions here
         return cost
 
