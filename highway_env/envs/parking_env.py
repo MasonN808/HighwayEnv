@@ -278,20 +278,30 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         """Determine speed costs. The vehicle should stay within a certain speed."""
         # Derived from the x and y velocities
         speed = np.linalg.norm(np.array([achieved_goal[2], achieved_goal[3]]))
-        cost =  speed - self.config['cost_speed_limit'] if speed > self.config['cost_speed_limit'] else 0
+        cost =  max(0, speed - self.config['cost_speed_limit'])
         return cost
 
-    #TODO: Refactor this
+    # def _cost(self) -> float:
+    #     cost = {}
+    #     cost["cost"] = 0
+    #     obs = self.observation_type_parking.observe()
+    #     obs = obs if isinstance(obs, tuple) else (obs,)
+    #     if self.config['cost_delta_distance']:
+    #         cost["cost"] += sum(self.compute_cost_dist(agent_obs['achieved_goal'], agent_obs['desired_goal']) for agent_obs in obs)
+    #     if self.config['cost_speed_limit']:
+    #         cost["cost"] += sum(self.compute_cost_speed(agent_obs['achieved_goal']) for agent_obs in obs)
+    #     # TODO Add additional cost functions here
+    #     return cost
     def _cost(self) -> float:
         cost = {}
+        cost["cost"] = [0,0]
         obs = self.observation_type_parking.observe()
         obs = obs if isinstance(obs, tuple) else (obs,)
-        cost["cost"] = 0
         if self.config['cost_delta_distance']:
-            cost["cost"] += sum(self.compute_cost_dist(agent_obs['achieved_goal'], agent_obs['desired_goal']) for agent_obs in obs)
-        # if self.config['cost_speed_limit']:
-        #     cost["cost"] += sum(self.compute_cost_speed(agent_obs['achieved_goal']) for agent_obs in obs)
-        # Added additional cost functions here
+            cost["cost"][0] += sum(self.compute_cost_dist(agent_obs['achieved_goal'], agent_obs['desired_goal']) for agent_obs in obs)
+        if self.config['cost_speed_limit']:
+            cost["cost"][1] += sum(self.compute_cost_speed(agent_obs['achieved_goal']) for agent_obs in obs)
+        # TODO Add additional cost functions here
         return cost
 
     def _is_success(self, achieved_goal: np.ndarray, desired_goal: np.ndarray) -> bool:
