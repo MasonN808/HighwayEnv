@@ -179,7 +179,22 @@ class ParkingEnv(AbstractEnv, GoalEnv):
             lateral_diff = (init_line_position[1]-end_line_position[1])/num_points
             x_pos -= longitudinal_diff
             y_pos -= lateral_diff
+
+        # Remove a percentage from the top and bottom portion of the array to smallerize the bounds
+        quantized_line_positions = self.remove_percentage(quantized_line_positions, 0.10) # Removes 10% from the bottom and top
         return np.asarray(quantized_line_positions)
+
+    def remove_percentage(data_list, percentage):
+        # Calculate how many elements represent the given percentage of the list
+        n_elements = round(percentage * len(data_list))
+        
+        # Remove the top percentage
+        del data_list[-n_elements:]
+        
+        # Remove the bottom percentage
+        del data_list[:n_elements]
+        
+        return data_list
 
     def _remove_quantized_points(self, desired_goal: np.ndarray, quantized_line_positions: np.ndarray, num_points: int) -> np.ndarray:
         """Removes all quantized points within one lane of the vehicle to prevent unncessary cost hikes."""
