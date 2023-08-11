@@ -109,8 +109,10 @@ class ParkingEnv(AbstractEnv, GoalEnv):
             # Cost-distance
             "cost_delta_distance": 7,
             "quantized_line_points": 20,
+            "absolute_cost_distance": True,
             # Cost-speed
-            'cost_speed_limit': 2,
+            "cost_speed_limit": 2,
+            "absolute_cost_speed": True
         })
         return config
 
@@ -304,9 +306,9 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         obs = self.observation_type_parking.observe()
         obs = obs if isinstance(obs, tuple) else (obs,)
         if self.config['cost_delta_distance']:
-            cost["cost"][0] += sum(self.compute_cost_dist(agent_obs['achieved_goal'], agent_obs['desired_goal'], absolute_cost=True) for agent_obs in obs)
+            cost["cost"][0] += sum(self.compute_cost_dist(agent_obs['achieved_goal'], agent_obs['desired_goal'], absolute_cost=self.config["absolute_cost_distance"]) for agent_obs in obs)
         if self.config['cost_speed_limit']:
-            cost["cost"][1] += sum(self.compute_cost_speed(agent_obs['achieved_goal'], absolute_cost=True) for agent_obs in obs)
+            cost["cost"][1] += sum(self.compute_cost_speed(agent_obs['achieved_goal'], absolute_cost=self.config["absolute_cost_speed"]) for agent_obs in obs)
         # TODO Add additional cost functions here
         return cost
 
