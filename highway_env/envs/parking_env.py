@@ -258,7 +258,7 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         reward += self.config['collision_reward'] * sum(v.crashed for v in self.controlled_vehicles)
         return reward
 
-    def compute_cost_dist(self, achieved_goal: np.ndarray, desired_goal: np.ndarray) -> float:
+    def compute_cost_dist(self, achieved_goal: np.ndarray, desired_goal: np.ndarray, absolute_cost: bool) -> float:
         """Determine line distance costs. The vehicle should stay out of a certain range of the parking lines."""
         # Check if we already removed the positions
         if self.deleted:
@@ -271,7 +271,10 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         # Multiply the goal positions by the scale since they are really small
         get_quantized_line_dist = lambda x: np.linalg.norm(np.asarray([achieved_goal[0]*self.config['observation']['scales'][0], achieved_goal[1]*self.config['observation']['scales'][1]]) - np.asarray([x[0], x[1]]))
         quantized_line_dist = [get_quantized_line_dist(position) for position in self.discretized_line_positions]
-        cost = max(0, self.config['cost_delta_distance'] - min(quantized_line_dist))
+        if absolute_cost:
+            cost = 1 if self.config['cost_delta_distance'] - min(quantized_line_dist) > 0 else 0
+        else: # Gradual cost
+            cost = max(0, self.config['cost_delta_distance'] - min(quantized_line_dist))
         return cost
 
     def compute_cost_speed(self, achieved_goal: np.ndarray) -> float:
@@ -298,7 +301,7 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         obs = self.observation_type_parking.observe()
         obs = obs if isinstance(obs, tuple) else (obs,)
         if self.config['cost_delta_distance']:
-            cost["cost"][0] += sum(self.compute_cost_dist(agent_obs['achieved_goal'], agent_obs['desired_goal']) for agent_obs in obs)
+            cost["cost"][0] += sum(self.compute_cost_dist(agent_obs['achieved_goal'], agent_obs['desired_goal'], absolute_cost=True) for agent_obs in obs)
         if self.config['cost_speed_limit']:
             cost["cost"][1] += sum(self.compute_cost_speed(agent_obs['achieved_goal']) for agent_obs in obs)
         # TODO Add additional cost functions here
