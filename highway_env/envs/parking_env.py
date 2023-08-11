@@ -181,10 +181,11 @@ class ParkingEnv(AbstractEnv, GoalEnv):
             y_pos -= lateral_diff
 
         # Remove a percentage from the top and bottom portion of the array to smallerize the bounds
-        quantized_line_positions = self.remove_percentage(quantized_line_positions, 0.10) # Removes 10% from the bottom and top
+        quantized_line_positions = self._remove_percentage(quantized_line_positions, 0.10) # Removes 10% from the bottom and top
         return np.asarray(quantized_line_positions)
 
-    def remove_percentage(data_list, percentage):
+    @staticmethod
+    def _remove_percentage(data_list: np.ndarray, percentage: float) -> np.ndarray:
         # Calculate how many elements represent the given percentage of the list
         n_elements = round(percentage * len(data_list))
         
