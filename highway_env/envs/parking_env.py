@@ -181,7 +181,7 @@ class ParkingEnv(AbstractEnv, GoalEnv):
             y_pos -= lateral_diff
 
         # Remove a percentage from the top and bottom portion of the array to smallerize the bounds
-        quantized_line_positions = self._remove_percentage(quantized_line_positions, 0.10) # Removes 10% from the bottom and top
+        quantized_line_positions = self._remove_percentage(quantized_line_positions, 0.20) # Removes 10% from the bottom and top
         return np.asarray(quantized_line_positions)
 
     @staticmethod
