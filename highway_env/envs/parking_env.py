@@ -275,8 +275,7 @@ class ParkingEnv(AbstractEnv, GoalEnv):
 
     def compute_cost_dist(self, achieved_goal: np.ndarray, desired_goal: np.ndarray, absolute_cost: bool) -> float:
         """Determine line distance costs. The vehicle should stay out of a certain range of the parking lines."""
-        # Normalized the desired goal
-        # TODO be sure nothing else needs to be normalized
+        # Normalized the desired goal since it is not on the same scale
         desired_goal = np.asarray([desired_goal[i]*self.config['observation']['scales'][i] for i in range(0,2)])
         # Check if we already removed the positions
         if not self.deleted:
@@ -304,17 +303,6 @@ class ParkingEnv(AbstractEnv, GoalEnv):
             cost =  max(0, speed - self.config['cost_speed_limit'])
         return cost
 
-    # def _cost(self) -> float:
-    #     cost = {}
-    #     cost["cost"] = 0
-    #     obs = self.observation_type_parking.observe()
-    #     obs = obs if isinstance(obs, tuple) else (obs,)
-    #     if self.config['cost_delta_distance']:
-    #         cost["cost"] += sum(self.compute_cost_dist(agent_obs['achieved_goal'], agent_obs['desired_goal']) for agent_obs in obs)
-    #     if self.config['cost_speed_limit']:
-    #         cost["cost"] += sum(self.compute_cost_speed(agent_obs['achieved_goal']) for agent_obs in obs)
-    #     # TODO Add additional cost functions here
-    #     return cost
     def _cost(self) -> float:
         cost = {}
         cost["cost"] = [0,0]
