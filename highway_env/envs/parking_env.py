@@ -188,13 +188,10 @@ class ParkingEnv(AbstractEnv, GoalEnv):
     def _remove_percentage(data_list: np.ndarray, percentage: float) -> np.ndarray:
         # Calculate how many elements represent the given percentage of the list
         n_elements = round(percentage * len(data_list))
-        
         # Remove the top percentage
         del data_list[-n_elements:]
-        
         # Remove the bottom percentage
         del data_list[:n_elements]
-        
         return data_list
 
     def _remove_quantized_points(self, desired_goal: np.ndarray, quantized_line_positions: np.ndarray, num_points: int) -> np.ndarray:
@@ -278,13 +275,15 @@ class ParkingEnv(AbstractEnv, GoalEnv):
 
     def compute_cost_dist(self, achieved_goal: np.ndarray, desired_goal: np.ndarray, absolute_cost: bool) -> float:
         """Determine line distance costs. The vehicle should stay out of a certain range of the parking lines."""
+        # Normalized the desired goal
+        # TODO be sure nothing else needs to be normalized
+        desired_goal = np.asarray([desired_goal[i]*self.config['observation']['scales'][i] for i in range(0,2)])
         # Check if we already removed the positions
-        if self.deleted:
+        if not self.deleted:
             self.deleted = True
             # Remove points around the goal
             # 2*num_points since there are two lanes next to the goal
             self.discretized_line_positions = self._remove_quantized_points(desired_goal, self.discretized_line_positions, self.config['quantized_line_points']*2)
-
         # Calculate cost on constraint violations
         # Multiply the goal positions by the scale since they are really small
         get_quantized_line_dist = lambda x: np.linalg.norm(np.asarray([achieved_goal[0]*self.config['observation']['scales'][0], achieved_goal[1]*self.config['observation']['scales'][1]]) - np.asarray([x[0], x[1]]))
