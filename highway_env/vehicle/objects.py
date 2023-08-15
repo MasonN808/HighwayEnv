@@ -35,6 +35,8 @@ class RoadObject(ABC):
         self.speed = speed
         self.lane_index = self.road.network.get_closest_lane_index(self.position, self.heading) if self.road else np.nan
         self.lane = self.road.network.get_lane(self.lane_index) if self.road else None
+        # For identifying constraint objects
+        self.label = ""
 
         # Enable collision with other collidables
         self.collidable = True

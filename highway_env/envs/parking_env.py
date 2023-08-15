@@ -150,62 +150,63 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         x_offset = 0
         y_offset = 10
         length = 8
-        num_points = self.config["quantized_line_points"]
 
         for k in range(spots):
             x = (k + 1 - spots // 2) * (width + x_offset) - width / 2
             net.add_lane("a", "b", StraightLane([x, y_offset], [x, y_offset+length], width=width, line_types=lt))
             net.add_lane("b", "c", StraightLane([x, -y_offset], [x, -y_offset-length], width=width, line_types=lt))
-            quantized_line_1 = self._quantize_straight_line_positions([x, y_offset], [x, y_offset+length], num_points=num_points, horizontal_offset=-width/2)
-            quantized_line_2 = self._quantize_straight_line_positions([x, -y_offset], [x, -y_offset-length], num_points=num_points, horizontal_offset=-width/2)
-            if k == 0:
-                self.discretized_line_positions = np.concatenate((quantized_line_1, quantized_line_2))
-            else:
-                self.discretized_line_positions = np.concatenate((self.discretized_line_positions, quantized_line_1, quantized_line_2))
 
         self.road = Road(network=net,
                          np_random=self.np_random,
                          record_history=self.config["show_trajectories"])
 
-    def _quantize_straight_line_positions(self, init_line_position: list, end_line_position: list, num_points: int, horizontal_offset: float=0) -> np.ndarray:
-        assert num_points > 0, "num_points must be strictly greater than zero'"
-        quantized_line_positions = []
-        # Initial positioning of the quantized point on the line
-        x_pos = init_line_position[0] + horizontal_offset # This is usually relative to the width of the lane
-        y_pos = init_line_position[1]
-        for _ in range(num_points):
-            quantized_line_positions.append([x_pos, y_pos])
-            longitudinal_diff = (init_line_position[0]-end_line_position[0])/num_points
-            lateral_diff = (init_line_position[1]-end_line_position[1])/num_points
-            x_pos -= longitudinal_diff
-            y_pos -= lateral_diff
+        # Add in the lane polynomial boundaries
+        for k in range(spots+1): # Add one since we care about lines not parking spots
+            x = (k + 1 - spots // 2) * (width + x_offset) - width # removed /2 since we care about lines not center of spots
+            self._create_constraint_boundaries(x, y_offset, x, y_offset+length, line_width=1.5)
+            self._create_constraint_boundaries(x, -y_offset, x, -y_offset-length, line_width=1.5)
 
-        # Remove a percentage from the top and bottom portion of the array to smallerize the bounds
-        quantized_line_positions = self._remove_percentage(quantized_line_positions, 0.20) # Removes 10% from the bottom and top
-        return np.asarray(quantized_line_positions)
-
-    @staticmethod
-    def _remove_percentage(data_list: np.ndarray, percentage: float) -> np.ndarray:
-        # Calculate how many elements represent the given percentage of the list
-        n_elements = round(percentage * len(data_list))
-        # Remove the top percentage
-        del data_list[-n_elements:]
-        # Remove the bottom percentage
-        del data_list[:n_elements]
-        return data_list
-
-    def _remove_quantized_points(self, desired_goal: np.ndarray, quantized_line_positions: np.ndarray, num_points: int) -> np.ndarray:
-        """Removes all quantized points within one lane of the vehicle to prevent unncessary cost hikes."""
+    def _remove_boundaries_near_dest(self, desired_goal):
+        """Removes bounaries within one lane of the vehicle."""
         # Get the distance from the desired_goal to the quantized line points
         get_distance = lambda position: np.linalg.norm(np.array([desired_goal[0], desired_goal[1]]) - np.array([position[0], position[1]]))
-        distances = [get_distance(quantized_line_position) for quantized_line_position in quantized_line_positions]
-        zipped_lists = zip(quantized_line_positions, distances)
+        distances = [get_distance(road_object.position) for road_object in self.road.objects]
+        zipped_lists = zip(self.road.objects, distances)
         # Sort both lists wrt to the distances
         sorted_pairs = sorted(zipped_lists, key=lambda x: x[1])
         # Unzip them
-        sorted_quantized_line_positions, sorted_distances = zip(*sorted_pairs)
-        # Remove the first n number of points
-        return sorted_quantized_line_positions[num_points:]
+        sorted_road_objects, sorted_distances = zip(*sorted_pairs)
+        # Only print the lane lines that are labelled for line constraints
+        nearest_line_constraint_objs = []
+        for road_object in sorted_road_objects:
+            if len(nearest_line_constraint_objs) == 2:
+                break
+            else:
+                if road_object.label == "line_constraint":
+                    nearest_line_constraint_objs.append(road_object)
+
+        # Remove the nearest_line_constraint_objs from the sorted road objects
+        return [road_object for road_object in sorted_road_objects if road_object not in nearest_line_constraint_objs] # Remove the two closest lines to the destination
+
+    def _create_constraint_boundaries(self, x1: float, y1: float, x2: float, y2: float, line_width: float = 1):
+        """
+        Generate the 4 corners of a box with padding around a line.
+        """
+        # Calculate the min and max y valuess
+        min_y = min(y1, y2)
+        max_y = max(y1, y2)
+
+        mid = ((x1 + x2) / 2, (y1 + y2) / 2)
+
+        obstacle = Obstacle(self.road, mid, heading=(np.pi / 2))
+        obstacle.LENGTH, obstacle.WIDTH = (np.linalg.norm(np.array(max_y - min_y)), line_width)
+        # Get the diagonal via the distance between two symmetrically opposite points
+        obstacle.diagonal = np.sqrt(obstacle.LENGTH**2 + obstacle.WIDTH**2)
+        # Label it for future querying
+        obstacle.label = "line_constraint"
+        # Disables physical collision so cars can drive over it
+        obstacle.collidable = True
+        self.road.objects.append(obstacle)
 
     def _create_vehicles(self) -> None:
         """Create some new random vehicles of a given type, and add them on the road."""
@@ -275,23 +276,23 @@ class ParkingEnv(AbstractEnv, GoalEnv):
 
     def compute_cost_dist(self, achieved_goal: np.ndarray, desired_goal: np.ndarray, absolute_cost: bool) -> float:
         """Determine line distance costs. The vehicle should stay out of a certain range of the parking lines."""
-        # Normalized the desired goal since it is not on the same scale
+        # # Normalized the desired goal since it is not on the same scale
         desired_goal = np.asarray([desired_goal[i]*self.config['observation']['scales'][i] for i in range(0,2)])
-        # Check if we already removed the positions
+        # # Check if we already removed the positions
         if not self.deleted:
             self.deleted = True
             # Remove points around the goal
-            # 2*num_points since there are two lanes next to the goal
-            self.discretized_line_positions = self._remove_quantized_points(desired_goal, self.discretized_line_positions, self.config['quantized_line_points']*2)
-        # Calculate cost on constraint violations
-        # Multiply the goal positions by the scale since they are really small
-        get_quantized_line_dist = lambda x: np.linalg.norm(np.asarray([achieved_goal[0]*self.config['observation']['scales'][0], achieved_goal[1]*self.config['observation']['scales'][1]]) - np.asarray([x[0], x[1]]))
-        quantized_line_dist = [get_quantized_line_dist(position) for position in self.discretized_line_positions]
-        if absolute_cost:
-            cost = 1 if self.config['cost_delta_distance'] - min(quantized_line_dist) > 0 else 0
-        else: # Gradual cost
-            cost = max(0, self.config['cost_delta_distance'] - min(quantized_line_dist))
-        return cost
+            self.road.objects = self._remove_boundaries_near_dest(desired_goal)
+        # # Calculate cost on constraint violations
+        # # Multiply the goal positions by the scale since they are really small
+        # get_quantized_line_dist = lambda x: np.linalg.norm(np.asarray([achieved_goal[0]*self.config['observation']['scales'][0], achieved_goal[1]*self.config['observation']['scales'][1]]) - np.asarray([x[0], x[1]]))
+        # quantized_line_dist = [get_quantized_line_dist(position) for position in self.discretized_line_positions]
+        # if absolute_cost:
+        #     cost = 1 if self.config['cost_delta_distance'] - min(quantized_line_dist) > 0 else 0
+        # else: # Gradual cost
+        #     cost = max(0, self.config['cost_delta_distance'] - min(quantized_line_dist))
+        # return cost
+        return 0
 
     def compute_cost_speed(self, achieved_goal: np.ndarray, absolute_cost=True) -> float:
         """Determine speed costs. The vehicle should stay within a certain speed."""
