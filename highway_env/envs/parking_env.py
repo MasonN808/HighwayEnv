@@ -106,10 +106,7 @@ class ParkingEnv(AbstractEnv, GoalEnv):
 
             # Costs
             "constrained_rl": False,
-            # Cost-distance
-            "cost_delta_distance": 7,
-            "quantized_line_points": 20,
-            "absolute_cost_distance": True,
+            "constraint_type": ["distance", "speed"],
             # Cost-speed
             "cost_speed_limit": 2,
             "absolute_cost_speed": True
@@ -306,14 +303,15 @@ class ParkingEnv(AbstractEnv, GoalEnv):
 
     def _cost(self) -> float:
         cost = {}
-        cost["cost"] = [0,0]
+        cost["cost"] = [0]*len(self.config['constraint_type'])
         obs = self.observation_type_parking.observe()
         obs = obs if isinstance(obs, tuple) else (obs,)
-        if self.config['cost_delta_distance']:
-            cost["cost"][0] += sum(self.compute_cost_dist(agent_obs['achieved_goal'], agent_obs['desired_goal'], absolute_cost=self.config["absolute_cost_distance"]) for agent_obs in obs)
-        if self.config['cost_speed_limit']:
-            cost["cost"][1] += sum(self.compute_cost_speed(agent_obs['achieved_goal'], absolute_cost=self.config["absolute_cost_speed"]) for agent_obs in obs)
-        # TODO Add additional cost functions here
+        for i in range(cost["cost"]): # TODO I think this works
+            if self.config['constraint_type'] == "distance":
+                cost["cost"][i] += sum(self.compute_cost_dist(agent_obs['achieved_goal'], agent_obs['desired_goal'], absolute_cost=self.config["absolute_cost_distance"]) for agent_obs in obs)
+            if self.config['constraint_type'] == "speed":
+                cost["cost"][i] += sum(self.compute_cost_speed(agent_obs['achieved_goal'], absolute_cost=self.config["absolute_cost_speed"]) for agent_obs in obs)
+            # TODO Add additional cost functions here
         return cost
 
     def _is_success(self, achieved_goal: np.ndarray, desired_goal: np.ndarray) -> bool:
