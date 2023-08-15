@@ -137,6 +137,7 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         self._create_road()
         self._create_vehicles()
         self.deleted = False
+        self.sum = 0
 
     def _create_road(self, spots: int = 14) -> None:
         """
@@ -205,7 +206,7 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         # Label it for future querying
         obstacle.label = "line_constraint"
         # Disables physical collision so cars can drive over it
-        obstacle.collidable = True
+        obstacle.collidable = False
         self.road.objects.append(obstacle)
 
     def _create_vehicles(self) -> None:
@@ -283,16 +284,15 @@ class ParkingEnv(AbstractEnv, GoalEnv):
             self.deleted = True
             # Remove points around the goal
             self.road.objects = self._remove_boundaries_near_dest(desired_goal)
-        # # Calculate cost on constraint violations
-        # # Multiply the goal positions by the scale since they are really small
-        # get_quantized_line_dist = lambda x: np.linalg.norm(np.asarray([achieved_goal[0]*self.config['observation']['scales'][0], achieved_goal[1]*self.config['observation']['scales'][1]]) - np.asarray([x[0], x[1]]))
-        # quantized_line_dist = [get_quantized_line_dist(position) for position in self.discretized_line_positions]
-        # if absolute_cost:
-        #     cost = 1 if self.config['cost_delta_distance'] - min(quantized_line_dist) > 0 else 0
-        # else: # Gradual cost
-        #     cost = max(0, self.config['cost_delta_distance'] - min(quantized_line_dist))
-        # return cost
-        return 0
+        # Calculate the number of polygon intersection points
+        cost_sum = 0
+        for road_object in self.road.objects:
+            if road_object.label == "line_constraint":
+                # Check whether the polygons intersect between the car and the line polygons
+                intersecting, _, _ = self.controlled_vehicles[0]._is_colliding(road_object, dt=1/self.config["simulation_frequency"])
+                if intersecting:
+                    cost_sum += 1
+        return cost_sum
 
     def compute_cost_speed(self, achieved_goal: np.ndarray, absolute_cost=True) -> float:
         """Determine speed costs. The vehicle should stay within a certain speed."""
