@@ -164,8 +164,8 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         # Add in the lane polynomial boundaries
         for k in range(spots+1): # Add one since we care about lines not parking spots
             x = (k + 1 - spots // 2) * (width + x_offset) - width # removed /2 since we care about lines not center of spots
-            self._create_constraint_boundaries(x, y_offset, x, y_offset+length, line_width=1.5)
-            self._create_constraint_boundaries(x, -y_offset, x, -y_offset-length, line_width=1.5)
+            self._create_constraint_boundaries(x, y_offset, x, y_offset+length, line_width=1)
+            self._create_constraint_boundaries(x, -y_offset, x, -y_offset-length, line_width=1)
 
     def _remove_boundaries_near_dest(self, desired_goal):
         """Removes bounaries within one lane of the vehicle."""
