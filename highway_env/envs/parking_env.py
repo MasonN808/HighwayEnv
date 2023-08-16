@@ -190,7 +190,7 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         """
         Generate the 4 corners of a box with padding around a line.
         """
-        # Calculate the min and max y valuess
+        # Calculate the min and max y values
         min_y = min(y1, y2)
         max_y = max(y1, y2)
 
@@ -272,7 +272,7 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         reward += self.config['collision_reward'] * sum(v.crashed for v in self.controlled_vehicles)
         return reward
 
-    def compute_cost_dist(self, achieved_goal: np.ndarray, desired_goal: np.ndarray, absolute_cost: bool) -> float:
+    def compute_cost_dist(self, desired_goal: np.ndarray) -> float:
         """Determine line distance costs. The vehicle should stay out of a certain range of the parking lines."""
         # # Normalized the desired goal since it is not on the same scale
         desired_goal = np.asarray([desired_goal[i]*self.config['observation']['scales'][i] for i in range(0,2)])
@@ -306,11 +306,14 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         cost["cost"] = [0]*len(self.config['constraint_type'])
         obs = self.observation_type_parking.observe()
         obs = obs if isinstance(obs, tuple) else (obs,)
-        for i in range(cost["cost"]): # TODO I think this works
-            if self.config['constraint_type'] == "distance":
-                cost["cost"][i] += sum(self.compute_cost_dist(agent_obs['achieved_goal'], agent_obs['desired_goal'], absolute_cost=self.config["absolute_cost_distance"]) for agent_obs in obs)
-            if self.config['constraint_type'] == "speed":
+        traversed = [False]*len(self.config['constraint_type'])
+        # Append the costs in the order recevived in constraint_type
+        for i in range(len(cost["cost"])):
+            if self.config['constraint_type'][i]=="distance" and not traversed[i]:
+                cost["cost"][i] += sum(self.compute_cost_dist(agent_obs['desired_goal']) for agent_obs in obs)
+            elif self.config['constraint_type'][i]=="speed" and not traversed[i]:
                 cost["cost"][i] += sum(self.compute_cost_speed(agent_obs['achieved_goal'], absolute_cost=self.config["absolute_cost_speed"]) for agent_obs in obs)
+            traversed[i] = True
             # TODO Add additional cost functions here
         return cost
 
