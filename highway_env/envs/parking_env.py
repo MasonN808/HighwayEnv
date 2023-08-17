@@ -127,7 +127,8 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         else:
             obs = self.observation_type_parking.observe()
             success = self._is_success(obs['achieved_goal'], obs['desired_goal'])
-        info.update({"is_success": success})
+            cost = self._cost()
+        info.update({"is_success": success, "cost": cost})
         return info
 
     def _reset(self):
@@ -238,7 +239,7 @@ class ParkingEnv(AbstractEnv, GoalEnv):
 
         # Walls
         if self.config['add_walls']:
-            width, height = 70, 42
+            width, height = 120, 100
             for y in [-height / 2, height / 2]:
                 obstacle = Obstacle(self.road, [0, y])
                 obstacle.LENGTH, obstacle.WIDTH = (width, 1)
