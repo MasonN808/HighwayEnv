@@ -107,8 +107,7 @@ class ParkingEnv(AbstractEnv, GoalEnv):
             # Costs
             "constraint_type": ["lines", "speed"],
             # Cost-speed
-            "speed_limit": 2,
-            "absolute_cost_speed": True
+            "speed_limit": 3,
         })
         return config
 
@@ -315,7 +314,7 @@ class ParkingEnv(AbstractEnv, GoalEnv):
             if self.config['constraint_type'][i]=="lines" and not traversed[i]:
                 cost["cost"][i] += sum(self.compute_cost_dist(agent_obs['desired_goal']) for agent_obs in obs)
             elif self.config['constraint_type'][i]=="speed" and not traversed[i]:
-                cost["cost"][i] += sum(self.compute_cost_speed(agent_obs['achieved_goal'], absolute_cost=self.config["absolute_cost_speed"]) for agent_obs in obs)
+                cost["cost"][i] += sum(self.compute_cost_speed(agent_obs['achieved_goal']) for agent_obs in obs)
             traversed[i] = True
             # TODO Add additional cost functions here
         return cost
