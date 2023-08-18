@@ -243,11 +243,9 @@ class AbstractEnv(gym.Env):
             self.render()
 
         # Constraint violations
-        if self.config["constrained_rl"]:
+        if self.config["constraint_type"]:
             info.update(self._cost())
             # cost = info['cost']
-        # NOTE Changed Observation here
-        # flattened_obs = list(obs['observation']) + list( obs['desired_goal']) + list(obs['achieved_goal']) # 1 x (6 x 3)
         return obs, reward, terminated, truncated, info
 
     def _simulate(self, action: Optional[Action] = None) -> None:

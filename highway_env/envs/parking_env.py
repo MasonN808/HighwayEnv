@@ -105,7 +105,6 @@ class ParkingEnv(AbstractEnv, GoalEnv):
             "start_location": [0,0],
 
             # Costs
-            "constrained_rl": False,
             "constraint_type": ["distance", "speed"],
             # Cost-speed
             "cost_speed_limit": 2,
@@ -170,19 +169,22 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         # Get the distance from the desired_goal to the quantized line points
         get_distance = lambda position: np.linalg.norm(np.array([desired_goal[0], desired_goal[1]]) - np.array([position[0], position[1]]))
         distances = [get_distance(road_object.position) for road_object in self.road.objects]
-        zipped_lists = zip(self.road.objects, distances)
+
         # Sort both lists wrt to the distances
+        zipped_lists = zip(self.road.objects, distances)
         sorted_pairs = sorted(zipped_lists, key=lambda x: x[1])
+
         # Unzip them
-        sorted_road_objects, sorted_distances = zip(*sorted_pairs)
+        sorted_road_objects, _ = zip(*sorted_pairs)
+
         # Only print the lane lines that are labelled for line constraints
         nearest_line_constraint_objs = []
         for road_object in sorted_road_objects:
             if len(nearest_line_constraint_objs) == 2:
                 break
-            else:
-                if road_object.label == "line_constraint":
-                    nearest_line_constraint_objs.append(road_object)
+            
+            if road_object.label == "line_constraint":
+                nearest_line_constraint_objs.append(road_object)
 
         # Remove the nearest_line_constraint_objs from the sorted road objects
         return [road_object for road_object in sorted_road_objects if road_object not in nearest_line_constraint_objs] # Remove the two closest lines to the destination
@@ -239,7 +241,7 @@ class ParkingEnv(AbstractEnv, GoalEnv):
 
         # Walls
         if self.config['add_walls']:
-            width, height = 120, 100
+            width, height = 100, 80
             for y in [-height / 2, height / 2]:
                 obstacle = Obstacle(self.road, [0, y])
                 obstacle.LENGTH, obstacle.WIDTH = (width, 1)
@@ -275,32 +277,32 @@ class ParkingEnv(AbstractEnv, GoalEnv):
 
     def compute_cost_dist(self, desired_goal: np.ndarray) -> float:
         """Determine line distance costs. The vehicle should stay out of a certain range of the parking lines."""
-        # # Normalized the desired goal since it is not on the same scale
+        # Normalized the desired goal since it is not on the same scale
         desired_goal = np.asarray([desired_goal[i]*self.config['observation']['scales'][i] for i in range(0,2)])
-        # # Check if we already removed the positions
+
+        # Check if we already removed the positions
         if not self.deleted:
             self.deleted = True
             # Remove points around the goal
             self.road.objects = self._remove_boundaries_near_dest(desired_goal)
-        # Calculate the number of polygon intersection points
-        cost_sum = 0
+
         for road_object in self.road.objects:
             if road_object.label == "line_constraint":
                 # Check whether the polygons intersect between the car and the line polygons
                 intersecting, _, _ = self.controlled_vehicles[0]._is_colliding(road_object, dt=1/self.config["simulation_frequency"])
                 if intersecting:
-                    cost_sum += 1
-        return cost_sum
+                    return 1
+
+        return 0
 
     def compute_cost_speed(self, achieved_goal: np.ndarray, absolute_cost=True) -> float:
         """Determine speed costs. The vehicle should stay within a certain speed."""
-        # Derived from the x and y velocities
         speed = np.linalg.norm(np.array([achieved_goal[2], achieved_goal[3]]))
+
         if absolute_cost:
-            cost = 1 if speed - self.config['cost_speed_limit'] > 0 else 0
-        else:
-            cost =  max(0, speed - self.config['cost_speed_limit'])
-        return cost
+            return 1 if speed - self.config['cost_speed_limit'] > 0 else 0
+
+        return max(0, speed - self.config['cost_speed_limit'])
 
     def _cost(self) -> float:
         cost = {}
