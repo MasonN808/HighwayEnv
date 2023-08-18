@@ -132,8 +132,9 @@ class ParkingEnv(AbstractEnv, GoalEnv):
     def _reset(self):
         self._create_road()
         self._create_vehicles()
-        self.deleted = False
-        self.sum = 0
+        if "lines" in self.config["constraint_type"]:
+            # Remove points around the goal
+            self.road.objects = self._remove_boundaries_near_dest()
 
     def _create_road(self, spots: int = 14) -> None:
         """
@@ -157,16 +158,21 @@ class ParkingEnv(AbstractEnv, GoalEnv):
                          np_random=self.np_random,
                          record_history=self.config["show_trajectories"])
 
-        # Add in the lane polynomial boundaries
-        for k in range(spots+1): # Add one since we care about lines not parking spots
-            x = (k + 1 - spots // 2) * (width + x_offset) - width # removed /2 since we care about lines not center of spots
-            self._create_constraint_boundaries(x, y_offset, x, y_offset+length, line_width=1)
-            self._create_constraint_boundaries(x, -y_offset, x, -y_offset-length, line_width=1)
+        if "lines" in self.config["constraint_type"]:
+            # Add in the lane polynomial boundaries
+            for k in range(spots+1): # Add one since we care about lines not parking spots
+                x = (k + 1 - spots // 2) * (width + x_offset) - width # removed /2 since we care about lines not center of spots
+                self._create_constraint_boundaries(x, y_offset, x, y_offset+length, line_width=1)
+                self._create_constraint_boundaries(x, -y_offset, x, -y_offset-length, line_width=1)
 
-    def _remove_boundaries_near_dest(self, desired_goal):
+    def _remove_boundaries_near_dest(self):
         """Removes bounaries within one lane of the vehicle."""
+        obs = self.observation_type_parking.observe()
+        obs = obs if isinstance(obs, tuple) else (obs,)
+        # Normalize the desired goal since it is not on the same scale
+        norm_desired_goal = np.asarray([obs[0]['desired_goal'][i]*self.config['observation']['scales'][i] for i in range(0,2)])
         # Get the distance from the desired_goal to the quantized line points
-        get_distance = lambda position: np.linalg.norm(np.array([desired_goal[0], desired_goal[1]]) - np.array([position[0], position[1]]))
+        get_distance = lambda position: np.linalg.norm(np.array([norm_desired_goal[0], norm_desired_goal[1]]) - np.array([position[0], position[1]]))
         distances = [get_distance(road_object.position) for road_object in self.road.objects]
 
         # Sort both lists wrt to the distances
@@ -185,8 +191,8 @@ class ParkingEnv(AbstractEnv, GoalEnv):
             if road_object.label == "line_constraint":
                 nearest_line_constraint_objs.append(road_object)
 
-        # Remove the nearest_line_constraint_objs from the sorted road objects
-        return [road_object for road_object in sorted_road_objects if road_object not in nearest_line_constraint_objs] # Remove the two closest lines to the destination
+        # Remove the nearest_line_constraint_objs from the sorted road objects but keep all other lines
+        return [road_object for road_object in sorted_road_objects if road_object not in nearest_line_constraint_objs] 
 
     def _create_constraint_boundaries(self, x1: float, y1: float, x2: float, y2: float, line_width: float = 1):
         """
@@ -274,24 +280,14 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         reward += self.config['collision_reward'] * sum(v.crashed for v in self.controlled_vehicles)
         return reward
 
-    def compute_cost_dist(self, desired_goal: np.ndarray) -> float:
+    def compute_cost_lines(self) -> float:
         """Determine line distance costs. The vehicle should stay out of a certain range of the parking lines."""
-        # Normalized the desired goal since it is not on the same scale
-        desired_goal = np.asarray([desired_goal[i]*self.config['observation']['scales'][i] for i in range(0,2)])
-
-        # Check if we already removed the positions
-        if not self.deleted:
-            self.deleted = True
-            # Remove points around the goal
-            self.road.objects = self._remove_boundaries_near_dest(desired_goal)
-
         for road_object in self.road.objects:
             if road_object.label == "line_constraint":
                 # Check whether the polygons intersect between the car and the line polygons
                 intersecting, _, _ = self.controlled_vehicles[0]._is_colliding(road_object, dt=1/self.config["simulation_frequency"])
                 if intersecting:
                     return 1
-
         return 0
 
     def compute_cost_speed(self, achieved_goal: np.ndarray, absolute_cost=True) -> float:
@@ -312,7 +308,7 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         # Append the costs in the order recevived in constraint_type
         for i in range(len(cost["cost"])):
             if self.config['constraint_type'][i]=="lines" and not traversed[i]:
-                cost["cost"][i] += sum(self.compute_cost_dist(agent_obs['desired_goal']) for agent_obs in obs)
+                cost["cost"][i] += sum(self.compute_cost_lines() for _ in obs)
             elif self.config['constraint_type'][i]=="speed" and not traversed[i]:
                 cost["cost"][i] += sum(self.compute_cost_speed(agent_obs['achieved_goal']) for agent_obs in obs)
             traversed[i] = True
