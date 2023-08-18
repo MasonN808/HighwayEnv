@@ -105,9 +105,9 @@ class ParkingEnv(AbstractEnv, GoalEnv):
             "start_location": [0,0],
 
             # Costs
-            "constraint_type": ["distance", "speed"],
+            "constraint_type": ["lines", "speed"],
             # Cost-speed
-            "cost_speed_limit": 2,
+            "speed_limit": 2,
             "absolute_cost_speed": True
         })
         return config
@@ -300,9 +300,9 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         speed = np.linalg.norm(np.array([achieved_goal[2], achieved_goal[3]]))
 
         if absolute_cost:
-            return 1 if speed - self.config['cost_speed_limit'] > 0 else 0
+            return 1 if speed - self.config['speed_limit'] > 0 else 0
 
-        return max(0, speed - self.config['cost_speed_limit'])
+        return max(0, speed - self.config['speed_limit'])
 
     def _cost(self) -> float:
         cost = {}
@@ -312,7 +312,7 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         traversed = [False]*len(self.config['constraint_type'])
         # Append the costs in the order recevived in constraint_type
         for i in range(len(cost["cost"])):
-            if self.config['constraint_type'][i]=="distance" and not traversed[i]:
+            if self.config['constraint_type'][i]=="lines" and not traversed[i]:
                 cost["cost"][i] += sum(self.compute_cost_dist(agent_obs['desired_goal']) for agent_obs in obs)
             elif self.config['constraint_type'][i]=="speed" and not traversed[i]:
                 cost["cost"][i] += sum(self.compute_cost_speed(agent_obs['achieved_goal'], absolute_cost=self.config["absolute_cost_speed"]) for agent_obs in obs)
