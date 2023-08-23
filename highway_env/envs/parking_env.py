@@ -103,6 +103,7 @@ class ParkingEnv(AbstractEnv, GoalEnv):
             "vehicles_count": 0,
             "add_walls": True,
             "start_location": [0,0],
+            "start_angle": 0, # This is radians
 
             # Costs
             "constraint_type": ["lines", "speed"],
@@ -222,7 +223,8 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         self.controlled_vehicles = []
         for i in range(self.config["controlled_vehicles"]):
             starting_location = [i*20 + self.config['start_location'][0], self.config['start_location'][1]]
-            vehicle = self.action_type.vehicle_class(self.road, starting_location, 2*np.pi*self.np_random.uniform(), 0)
+            starting_angle = 2*np.pi*self.np_random.uniform() if self.config['start_angle'] == "random" else self.config['start_angle']
+            vehicle = self.action_type.vehicle_class(self.road, starting_location, starting_angle, 0)
             vehicle.color = VehicleGraphics.EGO_COLOR
             self.road.vehicles.append(vehicle)
             self.controlled_vehicles.append(vehicle)
