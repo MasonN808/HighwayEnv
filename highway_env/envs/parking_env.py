@@ -303,18 +303,20 @@ class ParkingEnv(AbstractEnv, GoalEnv):
 
     def _cost(self) -> float:
         cost = {}
-        cost["cost"] = [0]*len(self.config['constraint_type'])
+        if len(self.config['constraint_type']) > 0:
+            cost["cost"] = [0]*len(self.config['constraint_type'])
         obs = self.observation_type_parking.observe()
         obs = obs if isinstance(obs, tuple) else (obs,)
         traversed = [False]*len(self.config['constraint_type'])
         # Append the costs in the order recevived in constraint_type
-        for i in range(len(cost["cost"])):
-            if self.config['constraint_type'][i]=="lines" and not traversed[i]:
-                cost["cost"][i] += sum(self.compute_cost_lines() for _ in obs)
-            elif self.config['constraint_type'][i]=="speed" and not traversed[i]:
-                cost["cost"][i] += sum(self.compute_cost_speed(agent_obs['achieved_goal']) for agent_obs in obs)
-            traversed[i] = True
-            # TODO Add additional cost functions here
+        if cost:
+            for i in range(len(cost["cost"])):
+                if self.config['constraint_type'][i]=="lines" and not traversed[i]:
+                    cost["cost"][i] += sum(self.compute_cost_lines() for _ in obs)
+                elif self.config['constraint_type'][i]=="speed" and not traversed[i]:
+                    cost["cost"][i] += sum(self.compute_cost_speed(agent_obs['achieved_goal']) for agent_obs in obs)
+                traversed[i] = True
+                # TODO Add additional cost functions here
         return cost
 
     def _is_success(self, achieved_goal: np.ndarray, desired_goal: np.ndarray) -> bool:
