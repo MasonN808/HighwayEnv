@@ -105,10 +105,10 @@ class ParkingEnv(AbstractEnv, GoalEnv):
             "start_location": [0,0],
             "start_angle": 0, # This is radians
 
-            # Costs
-            "constraint_type": ["lines", "speed"],
-            # Cost-speed
-            "speed_limit": 3,
+            # # Costs
+            # "constraint_type": ["lines", "speed"],
+            # # Cost-speed
+            # "speed_limit": 3,
         })
         return config
 
@@ -126,14 +126,17 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         else:
             obs = self.observation_type_parking.observe()
             success = self._is_success(obs['achieved_goal'], obs['desired_goal'])
-            cost = self._cost()
-        info.update({"is_success": success, "cost": cost})
+            if "constraint_type" in self.config:
+                cost = self._cost()
+                info["cost"] = cost
+
+        info["is_success"] = success
         return info
 
     def _reset(self):
         self._create_road()
         self._create_vehicles()
-        if "lines" in self.config["constraint_type"]:
+        if "constraint_type" in self.config and "lines" in self.config["constraint_type"]:
             # Remove points around the goal
             self.road.objects = self._remove_boundaries_near_dest()
 
@@ -159,7 +162,7 @@ class ParkingEnv(AbstractEnv, GoalEnv):
                          np_random=self.np_random,
                          record_history=self.config["show_trajectories"])
 
-        if "lines" in self.config["constraint_type"]:
+        if "constraint_type" in self.config and "lines" in self.config["constraint_type"]:
             # Add in the lane polynomial boundaries
             for k in range(spots+1): # Add one since we care about lines not parking spots
                 x = (k + 1 - spots // 2) * (width + x_offset) - width # removed /2 since we care about lines not center of spots

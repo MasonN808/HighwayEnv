@@ -243,9 +243,9 @@ class AbstractEnv(gym.Env):
             self.render()
 
         # Constraint violations
-        if self.config["constraint_type"]:
+        if "constraint_type" in self.config and self.config["constraint_type"]:
             info.update(self._cost())
-            # cost = info['cost']
+
         return obs, reward, terminated, truncated, info
 
     def _simulate(self, action: Optional[Action] = None) -> None:
