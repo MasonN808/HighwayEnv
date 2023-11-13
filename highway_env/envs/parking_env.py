@@ -150,7 +150,7 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         width = 4.0
         lt = (LineType.CONTINUOUS, LineType.CONTINUOUS)
         x_offset = 0
-        y_offset = 10
+        y_offset = 15 # TODO: default is 10
         length = 8
 
         for k in range(spots):
@@ -298,10 +298,6 @@ class ParkingEnv(AbstractEnv, GoalEnv):
     def compute_cost_speed(self, achieved_goal: np.ndarray, absolute_cost=True) -> float:
         """Determine speed costs. The vehicle should stay within a certain speed."""
         speed = np.linalg.norm(np.array([achieved_goal[2], achieved_goal[3]]))
-        # TODO: Double check this!
-        # TODO: May need longer trajectories!!
-        # print(f'speed: {speed}')
-        # print(f'speed limit: {self.config["speed_limit"]}')
         if absolute_cost:
             return 1 if speed - self.config['speed_limit'] > 0 else 0
 
@@ -323,7 +319,6 @@ class ParkingEnv(AbstractEnv, GoalEnv):
                     cost["cost"][i] += sum(self.compute_cost_speed(agent_obs['achieved_goal']) for agent_obs in obs)
                 traversed[i] = True
                 # TODO Add additional cost functions here
-        # print(cost)
         return cost
 
     def _is_success(self, achieved_goal: np.ndarray, desired_goal: np.ndarray) -> bool:
