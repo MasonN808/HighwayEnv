@@ -150,7 +150,7 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         width = 4.0
         lt = (LineType.CONTINUOUS, LineType.CONTINUOUS)
         x_offset = 0
-        y_offset = 15 # TODO: default is 10
+        y_offset = 10 # TODO: default is 10
         length = 8
 
         for k in range(spots):
