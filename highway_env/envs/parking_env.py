@@ -286,7 +286,7 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         # Add extra reward for finding goal
         for agent_obs in obs:
             if self._is_success(agent_obs['achieved_goal'], agent_obs['desired_goal']):
-                reward += 1
+                reward += 1000
         reward += self.config['collision_reward'] * sum(v.crashed for v in self.controlled_vehicles)
         return reward
 
