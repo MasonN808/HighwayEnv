@@ -88,7 +88,8 @@ class ParkingEnv(AbstractEnv, GoalEnv):
             "action": {
                 "type": "ContinuousAction"
             },
-            "reward_weights": [1, 0.3, 0, 0, 0.02, 0.02],
+            # The higher the reward weights, the harder it is to achieve the goal
+            "reward_weights": [1, 0.3, .02, .02, 0.02, 0.02],
             "success_goal_reward": 0.12,
             "collision_reward": -5,
             "steering_range": np.deg2rad(45),
@@ -282,6 +283,10 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         obs = self.observation_type_parking.observe()
         obs = obs if isinstance(obs, tuple) else (obs,)
         reward = sum(self.compute_reward(agent_obs['achieved_goal'], agent_obs['desired_goal'], {}) for agent_obs in obs)
+        # Add extra reward for finding goal
+        for agent_obs in obs:
+            if self._is_success(agent_obs['achieved_goal'], agent_obs['desired_goal']):
+                reward += 1
         reward += self.config['collision_reward'] * sum(v.crashed for v in self.controlled_vehicles)
         return reward
 
