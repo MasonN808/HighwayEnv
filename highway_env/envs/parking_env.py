@@ -303,6 +303,7 @@ class ParkingEnv(AbstractEnv, GoalEnv):
     def compute_cost_speed(self, achieved_goal: np.ndarray, absolute_cost=True) -> float:
         """Determine speed costs. The vehicle should stay within a certain speed."""
         speed = np.linalg.norm(np.array([achieved_goal[2], achieved_goal[3]]))
+        # print(speed)
         if absolute_cost:
             return 1 if speed - self.config['speed_limit'] > 0 else 0
 
