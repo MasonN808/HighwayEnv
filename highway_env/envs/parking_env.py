@@ -275,7 +275,7 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         :return: the corresponding reward
         """
         pseudo_reward = -np.power(np.dot(np.abs(achieved_goal - desired_goal), np.array(self.config["reward_weights"])), p)
-        if pseudo_reward > -self.config["success_goal_reward"]:
+        if pseudo_reward > self.config["success_goal_reward"]:
             return 100
         else:
             return 0
