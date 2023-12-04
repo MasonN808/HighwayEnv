@@ -266,22 +266,6 @@ class ParkingEnv(AbstractEnv, GoalEnv):
                 obstacle.diagonal = np.sqrt(obstacle.LENGTH**2 + obstacle.WIDTH**2)
                 self.road.objects.append(obstacle)
 
-    # def compute_reward(self, achieved_goal: np.ndarray, desired_goal: np.ndarray, info: dict, p: float = 0.5) -> float:
-    #     """
-    #     Proximity to the goal is rewarded
-
-    #     :param achieved_goal: the goal that was achieved
-    #     :param desired_goal: the goal that was desired
-    #     :param dict info: any supplementary information
-    #     :param p: the Lp^p norm used in the reward. Use p<1 to have high kurtosis for rewards in [0, 1]
-    #     :return: the corresponding reward
-    #     """
-    #     pseudo_reward = -np.power(np.dot(np.abs(achieved_goal - desired_goal), np.array(self.config["reward_weights"])), p)
-    #     if pseudo_reward > self.config["success_goal_reward"]:
-    #         return 100
-    #     else:
-    #         return 0
-    
     def compute_reward(self, achieved_goal: np.ndarray, desired_goal: np.ndarray, info: dict, p: float = 0.5) -> float:
         """
         Proximity to the goal is rewarded
@@ -295,17 +279,12 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         :return: the corresponding reward
         """
         computed_reward = -np.power(np.dot(np.abs(achieved_goal - desired_goal), np.array(self.config["reward_weights"])), p)
-        # print(computed_reward)
         return computed_reward
 
     def _reward(self, action: np.ndarray) -> float:
         obs = self.observation_type_parking.observe()
         obs = obs if isinstance(obs, tuple) else (obs,)
         reward = sum(self.compute_reward(agent_obs['achieved_goal'], agent_obs['desired_goal'], {}) for agent_obs in obs)
-        # Add extra reward for finding goal
-        # for agent_obs in obs:
-        #     if self._is_success(agent_obs['achieved_goal'], agent_obs['desired_goal']):
-        #         reward += 1000
         reward += self.config['collision_reward'] * sum(v.crashed for v in self.controlled_vehicles)
         return reward
 
