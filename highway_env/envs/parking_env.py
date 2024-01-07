@@ -308,6 +308,7 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         return max(0, speed - self.config['speed_limit'])
 
     def _cost(self) -> float:
+        """Calculate all relevant costs"""
         cost = {}
         if len(self.config['constraint_type']) > 0:
             cost["cost"] = [0]*len(self.config['constraint_type'])
