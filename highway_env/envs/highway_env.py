@@ -49,6 +49,13 @@ class HighwayEnv(AbstractEnv):
             "offroad_terminal": False
         })
         return config
+    
+    def _info(self, obs, action) -> dict:
+        info = super(HighwayEnv, self)._info(obs, action)
+        if "constraint_type" in self.config:
+            cost = self._cost()
+            info["cost"] = cost
+        return info
 
     def _reset(self) -> None:
         self._create_road()
@@ -110,6 +117,33 @@ class HighwayEnv(AbstractEnv):
             "high_speed_reward": np.clip(scaled_speed, 0, 1),
             "on_road_reward": float(self.vehicle.on_road)
         }
+    
+    def compute_cost_lanes(self, lane_index=[]) -> float:
+        """Determine cost of going into predetermined lane."""
+        assert len(lane_index > 0), "Lane indices must be nonempty"
+        if len(self.controlled_vehicles) == 1:
+            lane_id = self.controlled_vehicles[0].lane_id
+            if lane_id in lane_index:
+                return 1
+        else:
+            NotImplementedError
+    
+    def _cost(self) -> float:
+        """Calculate all relevant costs"""
+        cost = {}
+        if len(self.config['constraint_type']) > 0:
+            cost["cost"] = [0]*len(self.config['constraint_type'])
+        obs = self.observation_type_parking.observe()
+        obs = obs if isinstance(obs, tuple) else (obs,)
+        traversed = [False]*len(self.config['constraint_type'])
+        # Append the costs in the order recevived in constraint_type
+        if cost:
+            for i in range(len(cost["cost"])):
+                if self.config['constraint_type'][i]=="lanes" and not traversed[i]:
+                    cost["cost"][i] += sum(self.compute_cost_lanes(lane_index=self.config['cost_lane_indices']) for _ in obs)
+                traversed[i] = True
+                # TODO Add additional cost functions here
+        return cost
 
     def _is_terminated(self) -> bool:
         """The episode is over if the ego vehicle crashed."""
