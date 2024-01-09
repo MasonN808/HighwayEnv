@@ -134,6 +134,7 @@ class ParkingEnv(AbstractEnv, GoalEnv):
                 info["cost"] = cost
 
         info["is_success"] = success
+        info["avg_speed"],  info["max_speed"]= self._speed()
         return info
 
     def _reset(self):
@@ -325,6 +326,14 @@ class ParkingEnv(AbstractEnv, GoalEnv):
                 traversed[i] = True
                 # TODO Add additional cost functions here
         return cost
+    
+    def _speed(self):
+        obs = self.observation_type_parking.observe()
+        obs = obs if isinstance(obs, tuple) else (obs,)
+        speeds = [np.linalg.norm(np.array([agent_obs['achieved_goal'][2], agent_obs['achieved_goal'][3]])) for agent_obs in obs]
+        avg_speed = sum(speeds) / len(speeds)
+        max_speed = max(speeds)
+        return avg_speed, max_speed
 
     def _is_success(self, achieved_goal: np.ndarray, desired_goal: np.ndarray) -> bool:
         return self.compute_reward(achieved_goal, desired_goal, {}) > -self.config["success_goal_reward"]
