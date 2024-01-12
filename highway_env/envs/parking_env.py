@@ -73,8 +73,8 @@ class ParkingEnv(AbstractEnv, GoalEnv):
             "normalize": False
         }}
 
-    def __init__(self, config: dict = None, render_mode: Optional[str] = None) -> None:
-        super().__init__(config, render_mode)
+    def __init__(self, config: dict = None, render_mode: Optional[str] = None, env_logger_path: str = None) -> None:
+        super().__init__(config, render_mode, env_logger_path)
         self.observation_type_parking = None
 
     @classmethod

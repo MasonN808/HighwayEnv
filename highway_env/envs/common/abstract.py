@@ -38,8 +38,10 @@ class AbstractEnv(gym.Env):
     PERCEPTION_DISTANCE = 5.0 * Vehicle.MAX_SPEED
     """The maximum distance of any vehicle present in the observation [m]"""
 
-    def __init__(self, config: dict = None, render_mode: Optional[str] = None) -> None:
+    def __init__(self, config: dict = None, render_mode: Optional[str] = None, env_logger_path=None) -> None:
         super().__init__()
+        
+        self.env_logger_path = env_logger_path
 
         # Configuration
         self.config = self.default_config()
@@ -245,6 +247,10 @@ class AbstractEnv(gym.Env):
         # Constraint violations
         if "constraint_type" in self.config and self.config["constraint_type"]:
             info.update(self._cost())
+
+        with open(self.env_logger_path, "w") as file:
+            file.write(str(self.steps) + "-" + str(action) + "\n")
+            file.write(str(obs) + "\n")
 
         return obs, reward, terminated, truncated, info
 
