@@ -249,8 +249,9 @@ class AbstractEnv(gym.Env):
             info.update(self._cost())
 
         with open(self.env_logger_path, "a") as file:
-            file.write(str(self.steps) + "-" + str(action) + "\n")
-            file.write(str(obs["observation"]) + "\n")
+            file.write("step-" + str(self.steps) + "\n")
+            file.write("action-" + str(action) + "\n")
+            file.write("observation-" + str(obs["observation"]) + "\n")
 
         return obs, reward, terminated, truncated, info
 
