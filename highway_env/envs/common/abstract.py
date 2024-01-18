@@ -248,10 +248,11 @@ class AbstractEnv(gym.Env):
         if "constraint_type" in self.config and self.config["constraint_type"]:
             info.update(self._cost())
 
-        with open(self.env_logger_path, "a") as file:
-            file.write("step-" + str(self.steps) + "\n")
-            file.write("action-" + str(action) + "\n")
-            file.write("observation-" + str(obs["observation"]) + "\n")
+        if self.env_logger_path:
+            with open(self.env_logger_path, "a") as file:
+                file.write("step-" + str(self.steps) + "\n")
+                file.write("action-" + str(action) + "\n")
+                file.write("observation-" + str(obs["observation"]) + "\n")
 
         return obs, reward, terminated, truncated, info
 
