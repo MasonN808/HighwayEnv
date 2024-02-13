@@ -107,6 +107,7 @@ class ParkingEnv(AbstractEnv, GoalEnv):
             "add_walls": True,
             "start_location": [0,0],
             "start_angle": 0, # This is radians
+            "extra_lines": False,
 
             # # Costs
             # "constraint_type": ["lines", "speed"],
@@ -166,12 +167,36 @@ class ParkingEnv(AbstractEnv, GoalEnv):
                          np_random=self.np_random,
                          record_history=self.config["show_trajectories"])
 
+        # Adding cost variable for road network
         if "constraint_type" in self.config and "lines" in self.config["constraint_type"]:
             # Add in the lane polynomial boundaries
             for k in range(spots+1): # Add one since we care about lines not parking spots
                 x = (k + 1 - spots // 2) * (width + x_offset) - width # removed /2 since we care about lines not center of spots
                 self._create_constraint_boundaries(x, y_offset, x, y_offset+length, line_width=1)
                 self._create_constraint_boundaries(x, -y_offset, x, -y_offset-length, line_width=1)
+            
+        # For extra parking lines that simulate different parking scenario
+        if "extra_lines" in self.config:
+            x_first = (1 - spots // 2) * (width + x_offset) - width
+            x_last = (spots + 1 - spots // 2) * (width + x_offset) - width
+            # net.add_lane("a", "b", StraightLane([x_first, y_offset], [x_last, y_offset], width=width, line_types=lt))
+            # net.add_lane("b", "c", StraightLane([x_first, -y_offset], [x_last, -y_offset], width=width, line_types=lt))
+            self._make_extra_line(mid=(0, -y_offset-length), x_last=x_last, x_first=x_first)
+            self._make_extra_line(mid=(0, y_offset+length), x_last=x_last, x_first=x_first)
+            
+    def _make_extra_line(self, mid: tuple, x_last: float, x_first: float):
+        """
+        Makes an extra horizontal line for parking spots
+        """
+        obstacle = Obstacle(self.road, mid, heading=(0))
+        obstacle.LENGTH, obstacle.WIDTH = (np.linalg.norm(np.array(x_last - x_first)), 1)
+        # Get the diagonal via the distance between two symmetrically opposite points
+        obstacle.diagonal = np.sqrt(obstacle.LENGTH**2 + obstacle.WIDTH**2)
+        # Label it for future querying
+        obstacle.label = "lane"
+        # Disables physical collision so cars can drive over it
+        obstacle.collidable = False
+        self.road.objects.append(obstacle)
 
     def _remove_boundaries_near_dest(self):
         """Removes bounaries within one lane of the vehicle."""
