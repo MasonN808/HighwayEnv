@@ -70,7 +70,8 @@ class ParkingEnv(AbstractEnv, GoalEnv):
             "type": "KinematicsGoal",
             "features": ['x', 'y', 'vx', 'vy', 'cos_h', 'sin_h'],
             "scales": [100, 100, 5, 5, 1, 1],
-            "normalize": False
+            "normalize": False,
+            "additional_features": [] # For adding extra features to the observation space (e.g., line coordinates for line constraints)
         }}
 
     def __init__(self, config: dict = None, render_mode: Optional[str] = None, env_logger_path: str = None) -> None:
@@ -85,7 +86,8 @@ class ParkingEnv(AbstractEnv, GoalEnv):
                 "type": "KinematicsGoal",
                 "features": ['x', 'y', 'vx', 'vy', 'cos_h', 'sin_h'],
                 "scales": [100, 100, 5, 5, 1, 1],
-                "normalize": False
+                "normalize": False,
+                "additional_features": []
             },
             "action": {
                 "type": "ContinuousAction"
@@ -108,6 +110,7 @@ class ParkingEnv(AbstractEnv, GoalEnv):
             "start_location": [0,0],
             "start_angle": 0, # This is radians
             "extra_lines": False,
+            "additional_features": False,
 
             # # Costs
             # "constraint_type": ["lines", "speed"],
@@ -166,6 +169,8 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         self.road = Road(network=net,
                          np_random=self.np_random,
                          record_history=self.config["show_trajectories"])
+        
+        line_coordinates = []
 
         # Adding cost variable for road network
         if "constraint_type" in self.config and "lines" in self.config["constraint_type"]:
@@ -174,22 +179,116 @@ class ParkingEnv(AbstractEnv, GoalEnv):
                 x = (k + 1 - spots // 2) * (width + x_offset) - width # removed /2 since we care about lines not center of spots
                 self._create_constraint_boundaries(x, y_offset, x, y_offset+length, line_width=1)
                 self._create_constraint_boundaries(x, -y_offset, x, -y_offset-length, line_width=1)
-            
+                if self.config["additional_features"]:
+                    line_coordinates += self.generate_line_coords(x, y_offset, x, y_offset+length, line_width=1, n=30)
+                    line_coordinates += self.generate_line_coords(x, -y_offset, x, -y_offset-length, line_width=1, n=30)
+                    
         # For extra parking lines that simulate different parking scenario
         if "extra_lines" in self.config:
             x_first = (1 - spots // 2) * (width + x_offset) - width
             x_last = (spots + 1 - spots // 2) * (width + x_offset) - width
-            # net.add_lane("a", "b", StraightLane([x_first, y_offset], [x_last, y_offset], width=width, line_types=lt))
-            # net.add_lane("b", "c", StraightLane([x_first, -y_offset], [x_last, -y_offset], width=width, line_types=lt))
-            self._make_extra_line(mid=(0, -y_offset-length), x_last=x_last, x_first=x_first)
-            self._make_extra_line(mid=(0, y_offset+length), x_last=x_last, x_first=x_first)
+            self._make_extra_line(mid=(0, -y_offset-length), x_last=x_last, x_first=x_first, line_width=1)
+            self._make_extra_line(mid=(0, y_offset+length), x_last=x_last, x_first=x_first, line_width=1)
+            if self.config["additional_features"]:
+                line_coordinates += self.generate_line_coords(x_first, y_offset+length, x_last, y_offset+length, line_width=1, n=100)
+                line_coordinates += self.generate_line_coords(x_first, -y_offset-length, x_last, -y_offset-length, line_width=1, n=100)
+
+        if self.config["additional_features"]:
+            # Update the observation dictionary settings with the additional features
+            self.PARKING_OBS["observation"]["additional_features"] = line_coordinates
+            self.config["observation"]["additional_features"] = line_coordinates
+
+        # Testing line_coordinate implementation accuracy
+        # for mid_coord in line_coordinates:
+        #     obstacle = Obstacle(self.road, mid_coord, heading=(np.pi / 2))
+        #     obstacle.LENGTH, obstacle.WIDTH = (np.linalg.norm(np.array(2)), 2)
+        #     # Get the diagonal via the distance between two symmetrically opposite points
+        #     obstacle.diagonal = np.sqrt(obstacle.LENGTH**2 + obstacle.WIDTH**2)
+        #     # Label it for future querying
+        #     obstacle.label = "coord_testing"
+        #     # Disables physical collision so cars can drive over it
+        #     obstacle.collidable = False
+        #     self.road.objects.append(obstacle)
             
-    def _make_extra_line(self, mid: tuple, x_last: float, x_first: float):
+
+    def generate_line_coords(self, x1, y1, x2, y2, line_width=1, n=40) -> list[tuple]:
+        """
+        Generates the line coordinates to be placed in the observation for line constraints to make training easier
+
+        :param line_width: the width of the linees being quantized 
+        :param n: number of total quantized points
+
+        """
+        # Calculate direction vector
+        dx, dy = x2 - x1, y2 - y1
+        length = np.sqrt(dx**2 + dy**2)
+        
+        # Normalize direction vector
+        dir_x, dir_y = dx / length, dy / length
+        
+        # Find perpendicular vector for width
+        perp_x, perp_y = -dir_y, dir_x
+        
+        # Calculate corners of the box
+        half_width = line_width / 2
+        corner1 = (x1 + perp_x * half_width, y1 + perp_y * half_width)
+        corner2 = (x2 + perp_x * half_width, y2 + perp_y * half_width)
+        corner3 = (x2 - perp_x * half_width, y2 - perp_y * half_width)
+        corner4 = (x1 - perp_x * half_width, y1 - perp_y * half_width)
+        
+        # Helper function to interpolate points between two corners
+        def interpolate_points(c1, c2, num_points):
+            if num_points <= 1:
+                # Return the midpoint when only one point is requested
+                return [((c1[0] + c2[0]) / 2, (c1[1] + c2[1]) / 2)]
+            else:
+                # Otherwise, interpolate num_points along the line segment
+                return [(c1[0] + (c2[0] - c1[0]) * i / (num_points - 1), c1[1] + (c2[1] - c1[1]) * i / (num_points - 1)) for i in range(num_points)]
+        
+        # Quantize points along the edges of the box
+        # List of all corners
+        corners = [corner1, corner2, corner3, corner4]
+        # Function to calculate Euclidean distance between two points
+        def distance(point1, point2):
+            return np.sqrt((point2[0] - point1[0]) ** 2 + (point2[1] - point1[1]) ** 2)
+        
+        # Calculate the length of each side
+        side_lengths = [distance(corners[i], corners[(i + 1) % len(corners)]) for i in range(len(corners))]
+
+        # Calculate the total perimeter of the box
+        total_perimeter = sum(side_lengths)
+
+        # Calculate the proportion of each side relative to the total perimeter
+        side_proportions = [length / total_perimeter for length in side_lengths]
+
+        # Determine the number of points for each side based on its proportion
+        n_total_points = n  # or any other total number of points you wish to distribute
+        points_per_side = [max(1, round(proportion * n_total_points)) for proportion in side_proportions]
+
+        # Adjust points to match the total number exactly, in case rounding errors occurred
+        while sum(points_per_side) != n_total_points:
+            differences = [abs(n - proportion * n_total_points) for n, proportion in zip(points_per_side, side_proportions)]
+            index_to_adjust = differences.index(max(differences))
+            if sum(points_per_side) < n_total_points:
+                points_per_side[index_to_adjust] += 1
+            else:
+                points_per_side[index_to_adjust] -= 1
+
+        # Now interpolate points based on calculated distribution
+        line_coords = []
+        edges = [(corner1, corner2), (corner2, corner3), (corner3, corner4), (corner4, corner1)]
+
+        for (start, end), n_points in zip(edges, points_per_side):
+            line_coords += interpolate_points(start, end, n_points)
+
+        return line_coords
+
+    def _make_extra_line(self, mid: tuple, x_last: float, x_first: float, line_width: float):
         """
         Makes an extra horizontal line for parking spots
         """
         obstacle = Obstacle(self.road, mid, heading=(0))
-        obstacle.LENGTH, obstacle.WIDTH = (np.linalg.norm(np.array(x_last - x_first)), 1)
+        obstacle.LENGTH, obstacle.WIDTH = (np.linalg.norm(np.array(x_last - x_first)), line_width)
         # Get the diagonal via the distance between two symmetrically opposite points
         obstacle.diagonal = np.sqrt(obstacle.LENGTH**2 + obstacle.WIDTH**2)
         # Label it for future querying
