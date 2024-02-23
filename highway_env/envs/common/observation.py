@@ -457,7 +457,6 @@ class OccupancyGridObservation(ObservationType):
 class KinematicsGoalObservation(KinematicObservation):
     def __init__(self, env: 'AbstractEnv', scales: List[float], **kwargs: dict) -> None:
         self.scales = np.array(scales)
-        self.additional_features = kwargs["additional_features"]
         super().__init__(env, **kwargs)
 
     def space(self) -> spaces.Space:
@@ -467,9 +466,8 @@ class KinematicsGoalObservation(KinematicObservation):
                 "desired_goal": spaces.Box(-np.inf, np.inf, shape=obs["desired_goal"].shape, dtype=np.float64),
                 "achieved_goal": spaces.Box(-np.inf, np.inf, shape=obs["achieved_goal"].shape, dtype=np.float64),
                 "observation": spaces.Box(-np.inf, np.inf, shape=obs["observation"].shape, dtype=np.float64),
+                "additional_features": spaces.Box(-np.inf, np.inf, shape=obs["additional_features"].shape, dtype=np.float64)
             }
-            if self.additional_features:
-                spaces_dict["additional_features"] = spaces.Box(-np.inf, np.inf, shape=obs["additional_features"].shape, dtype=np.float64)
             return spaces.Dict(spaces_dict)
         except AttributeError:
             return spaces.Space()
@@ -479,10 +477,9 @@ class KinematicsGoalObservation(KinematicObservation):
             ordered_list = [
                 ("observation", np.zeros((len(self.features),))),
                 ("achieved_goal", np.zeros((len(self.features),))),
-                ("desired_goal", np.zeros((len(self.features),)))
+                ("desired_goal", np.zeros((len(self.features),))),
+                ("additional_features", np.zeros((len(self.features),)))
             ]
-            if self.additional_features: # TODO: refine this
-                ordered_list.append(("additional_features", np.zeros((len(self.features),))))
             return OrderedDict(ordered_list)
 
         obs = np.ravel(pd.DataFrame.from_records([self.observer_vehicle.to_dict()])[self.features])
@@ -490,10 +487,9 @@ class KinematicsGoalObservation(KinematicObservation):
         scaled_obs = [
             ("observation", obs / self.scales),
             ("achieved_goal", obs / self.scales),
-            ("desired_goal", goal / self.scales)
+            ("desired_goal", goal / self.scales),
+            ("additional_features", np.array([])) # not scaling 
          ]
-        if self.additional_features:
-            scaled_obs.append(("additional_features", np.array(self.additional_features).flatten()))
         obs = OrderedDict(scaled_obs)
         return obs
 
