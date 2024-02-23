@@ -75,6 +75,7 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         }}
 
     def __init__(self, config: dict = None, render_mode: Optional[str] = None, env_logger_path: str = None) -> None:
+        self.line_coordinates = []
         super().__init__(config, render_mode, env_logger_path)
         self.observation_type_parking = None
 
@@ -110,12 +111,7 @@ class ParkingEnv(AbstractEnv, GoalEnv):
             "start_location": [0,0],
             "start_angle": 0, # This is radians
             "extra_lines": False,
-            "additional_features": False,
-
-            # # Costs
-            # "constraint_type": ["lines", "speed"],
-            # # Cost-speed
-            # "speed_limit": 3,
+            "use_closest_line_distance_in_obs": False
         })
         return config
 
@@ -138,7 +134,10 @@ class ParkingEnv(AbstractEnv, GoalEnv):
                 info["cost"] = cost
 
         info["is_success"] = success
-        info["avg_speed"],  info["max_speed"]= self._speed()
+        info["avg_speed"],  info["max_speed"] = self._speed()
+        if self.config["use_closest_line_distance_in_obs"]:
+            info["closest_line_distance"] = self.find_closest_line_point_distance()
+
         return info
 
     def _reset(self):
@@ -147,6 +146,20 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         if "constraint_type" in self.config and "lines" in self.config["constraint_type"]:
             # Remove points around the goal
             self.road.objects = self._remove_boundaries_near_dest()
+
+    def find_closest_line_point_distance(self):
+        """
+        Finds the distance to the closest quantized line point
+        """
+        if not self.line_coordinates:
+            return None
+        vehicle = self.road.vehicles[0] # Only for one vehicle for now
+        vehicle_coords = (vehicle.position[0], vehicle.position[1])
+        line_coords = np.array(self.line_coordinates)
+        # Search for closest distance
+        distances = np.sqrt(np.sum((line_coords - vehicle_coords)**2, axis=1))
+        min_dist = distances.min()
+        return min_dist
 
     def _create_road(self, spots: int = 14) -> None:
         """
@@ -169,8 +182,6 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         self.road = Road(network=net,
                          np_random=self.np_random,
                          record_history=self.config["show_trajectories"])
-        
-        line_coordinates = []
 
         # Adding cost variable for road network
         if "constraint_type" in self.config and "lines" in self.config["constraint_type"]:
@@ -179,9 +190,9 @@ class ParkingEnv(AbstractEnv, GoalEnv):
                 x = (k + 1 - spots // 2) * (width + x_offset) - width # removed /2 since we care about lines not center of spots
                 self._create_constraint_boundaries(x, y_offset, x, y_offset+length, line_width=1)
                 self._create_constraint_boundaries(x, -y_offset, x, -y_offset-length, line_width=1)
-                if self.config["additional_features"]:
-                    line_coordinates += self.generate_line_coords(x, y_offset, x, y_offset+length, line_width=1, n=30)
-                    line_coordinates += self.generate_line_coords(x, -y_offset, x, -y_offset-length, line_width=1, n=30)
+                if self.config["use_closest_line_distance_in_obs"]:
+                    self.line_coordinates += self.generate_line_coords(x, y_offset, x, y_offset+length, line_width=1, n=30)
+                    self.line_coordinates += self.generate_line_coords(x, -y_offset, x, -y_offset-length, line_width=1, n=30)
                     
         # For extra parking lines that simulate different parking scenario
         if "extra_lines" in self.config:
@@ -189,14 +200,9 @@ class ParkingEnv(AbstractEnv, GoalEnv):
             x_last = (spots + 1 - spots // 2) * (width + x_offset) - width
             self._make_extra_line(mid=(0, -y_offset-length), x_last=x_last, x_first=x_first, line_width=1)
             self._make_extra_line(mid=(0, y_offset+length), x_last=x_last, x_first=x_first, line_width=1)
-            if self.config["additional_features"]:
-                line_coordinates += self.generate_line_coords(x_first, y_offset+length, x_last, y_offset+length, line_width=1, n=100)
-                line_coordinates += self.generate_line_coords(x_first, -y_offset-length, x_last, -y_offset-length, line_width=1, n=100)
-
-        if self.config["additional_features"]:
-            # Update the observation dictionary settings with the additional features
-            self.PARKING_OBS["observation"]["additional_features"] = line_coordinates
-            self.config["observation"]["additional_features"] = line_coordinates
+            if self.config["use_closest_line_distance_in_obs"]:
+                self.line_coordinates += self.generate_line_coords(x_first, y_offset+length, x_last, y_offset+length, line_width=1, n=100)
+                self.line_coordinates += self.generate_line_coords(x_first, -y_offset-length, x_last, -y_offset-length, line_width=1, n=100)
 
         # Testing line_coordinate implementation accuracy
         # for mid_coord in line_coordinates:
