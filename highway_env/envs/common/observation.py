@@ -488,7 +488,7 @@ class KinematicsGoalObservation(KinematicObservation):
             ("observation", obs / self.scales),
             ("achieved_goal", obs / self.scales),
             ("desired_goal", goal / self.scales),
-            ("additional_features", np.array([])) # not scaling 
+            ("additional_features", np.array([1])) # keep 1 as dummy variable; should not have any effect on code since will get overwritten in step() of anstract env
          ]
         obs = OrderedDict(scaled_obs)
         return obs
