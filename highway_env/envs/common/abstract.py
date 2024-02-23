@@ -248,6 +248,10 @@ class AbstractEnv(gym.Env):
         if "constraint_type" in self.config and self.config["constraint_type"]:
             info.update(self._cost())
 
+        if self.config["use_closest_line_distance_in_obs"]:
+            # add the info key-value to the observation
+            obs["additional_features"] = np.array([info.get("closest_line_distance")])
+
         if self.env_logger_path:
             with open(self.env_logger_path, "a") as file:
                 file.write("step-" + str(self.steps) + "\n")
