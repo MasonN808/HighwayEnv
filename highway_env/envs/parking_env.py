@@ -190,8 +190,8 @@ class ParkingEnv(AbstractEnv, GoalEnv):
                 self._create_constraint_boundaries(x, y_offset, x, y_offset+length, line_width=1)
                 self._create_constraint_boundaries(x, -y_offset, x, -y_offset-length, line_width=1)
                 if self.config["use_closest_line_distance_in_obs"]:
-                    self.line_coordinates += self.generate_line_coords(x, y_offset, x, y_offset+length, line_width=1, n=30)
-                    self.line_coordinates += self.generate_line_coords(x, -y_offset, x, -y_offset-length, line_width=1, n=30)
+                    self.line_coordinates += self.generate_line_coords(x, y_offset, x, y_offset+length, line_width=1, n=20)
+                    self.line_coordinates += self.generate_line_coords(x, -y_offset, x, -y_offset-length, line_width=1, n=20)
                     
         # For extra parking lines that simulate different parking scenario
         if "extra_lines" in self.config:
@@ -200,8 +200,8 @@ class ParkingEnv(AbstractEnv, GoalEnv):
             self._make_extra_line(mid=(0, -y_offset-length), x_last=x_last, x_first=x_first, line_width=1)
             self._make_extra_line(mid=(0, y_offset+length), x_last=x_last, x_first=x_first, line_width=1)
             if self.config["use_closest_line_distance_in_obs"]:
-                self.line_coordinates += self.generate_line_coords(x_first, y_offset+length, x_last, y_offset+length, line_width=1, n=100)
-                self.line_coordinates += self.generate_line_coords(x_first, -y_offset-length, x_last, -y_offset-length, line_width=1, n=100)
+                self.line_coordinates += self.generate_line_coords(x_first, y_offset+length, x_last, y_offset+length, line_width=1, n=50)
+                self.line_coordinates += self.generate_line_coords(x_first, -y_offset-length, x_last, -y_offset-length, line_width=1, n=50)
 
         # Testing line_coordinate implementation accuracy
         # for mid_coord in line_coordinates:
