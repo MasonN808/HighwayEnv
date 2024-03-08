@@ -142,9 +142,9 @@ class ParkingEnv(AbstractEnv, GoalEnv):
     def _reset(self):
         self._create_road()
         self._create_vehicles()
-        if "constraint_type" in self.config and "lines" in self.config["constraint_type"]:
-            # Remove points around the goal
-            self.road.objects = self._remove_boundaries_near_dest()
+        # if "constraint_type" in self.config and "lines" in self.config["constraint_type"]:
+        #     # Remove points around the goal
+        #     self.road.objects = self._remove_boundaries_near_dest()
 
     def find_closest_line_point_distance(self):
         """
