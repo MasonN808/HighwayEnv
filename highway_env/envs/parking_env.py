@@ -167,10 +167,10 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         :param spots: number of spots in the parking
         """
         net = RoadNetwork()
-        width = 4.0
+        width = 6.0 # default 4
         lt = (LineType.CONTINUOUS, LineType.CONTINUOUS)
         x_offset = 0
-        y_offset = 10 # default is 10
+        y_offset = 12 # default is 10
         length = 8
 
         for k in range(spots):
