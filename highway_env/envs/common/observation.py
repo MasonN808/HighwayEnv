@@ -749,7 +749,7 @@ class KinematicsLidarObservation(ObservationType):
 
     def space(self) -> spaces.Space:
         high = 1 if self.normalize else self.maximum_range
-        return spaces.Box(shape=(self.cells, 2), low=-high, high=high, dtype=np.float32)
+        return spaces.Box(shape=(self.cells*2 + len(self.kinematicsObservation.features)*3, 1), low=-high, high=high, dtype=np.float32)
 
     def observe(self) -> np.ndarray:
         obs = self.trace(self.observer_vehicle.position, self.observer_vehicle.velocity).copy()
