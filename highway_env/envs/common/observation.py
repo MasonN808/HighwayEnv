@@ -679,6 +679,9 @@ class LidarObservation(ObservationType):
         self.grid = np.ones((self.cells, 2)) * self.maximum_range
 
         for obstacle in self.env.road.vehicles + self.env.road.objects:
+            # Check if any distance measurement is less than some threshold to determine if vehicle is in/on object
+            if np.any(self.grid[:, self.DISTANCE] < .01):
+                self.grid = np.zeros((self.cells, 2))  # Assuming 2 for distance and speed
             if obstacle is self.observer_vehicle or not obstacle.solid:
                 continue
             center_distance = np.linalg.norm(obstacle.position - origin)
@@ -764,6 +767,9 @@ class KinematicsLidarObservation(ObservationType):
         self.grid = np.ones((self.cells, 2)) * self.maximum_range
 
         for obstacle in self.env.road.vehicles + self.env.road.objects:
+            # Check if any distance measurement is less than some threshold to determine if vehicle is in/on object
+            if np.any(self.grid[:, self.DISTANCE] < .01):
+                self.grid = np.zeros((self.cells, 2))  # Assuming 2 for distance and speed
             if obstacle is self.observer_vehicle or not obstacle.solid:
                 continue
             center_distance = np.linalg.norm(obstacle.position - origin)
