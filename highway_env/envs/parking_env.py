@@ -297,7 +297,8 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         # Get the diagonal via the distance between two symmetrically opposite points
         obstacle.diagonal = np.sqrt(obstacle.LENGTH**2 + obstacle.WIDTH**2)
         # Label it for future querying
-        obstacle.label = "lane"
+        obstacle.label = "line_constraint"
+        obstacle.solid = True
         # Disables physical collision so cars can drive over it
         obstacle.collidable = False
         self.road.objects.append(obstacle)
@@ -347,6 +348,7 @@ class ParkingEnv(AbstractEnv, GoalEnv):
         obstacle.diagonal = np.sqrt(obstacle.LENGTH**2 + obstacle.WIDTH**2)
         # Label it for future querying
         obstacle.label = "line_constraint"
+        obstacle.solid = True
         # Disables physical collision so cars can drive over it
         obstacle.collidable = False
         self.road.objects.append(obstacle)
