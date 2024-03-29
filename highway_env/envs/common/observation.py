@@ -905,6 +905,8 @@ def observation_factory(env: 'AbstractEnv', config: dict) -> ObservationType:
         return LidarObservation(env, **config)
     elif config["type"] == "KinematicsLidarObservation":
         return KinematicsLidarObservation(env, **config)
+    elif config["type"] == "KinematicsGrayScaleObservation":
+        return KinematicsGrayScaleObservation(env, **config)
     elif config["type"] == "ExitObservation":
         return ExitObservation(env, **config)
     else:
